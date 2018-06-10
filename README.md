@@ -10,6 +10,8 @@ In order for the monitor to work, you must have [Python 3+](https://www.python.o
 `cd Off-White-Monitor`
 `python3 dependencies.py`
 
+Then if you want to use discord/slack integration, just paste in your webhook at the bottom of the file in whatever text editor you prefer!
+
 ## Bugs
 
 I'm not a perfect human being, so if you notice any bugs or anything out of line, feel free to create an issue and I'll do my best to track it down!

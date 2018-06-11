@@ -10,7 +10,7 @@ In order for the monitor to work, you must have [Python 3+](https://www.python.o
 `cd Off-White-Monitor`<br>
 `python3 dependencies.py`
 
-Then if you want to use discord/slack integration, just paste in your webhook at the bottom of the file in whatever text editor you prefer!
+Since you're most likely using Slack/Discord for notifications, go ahead and rename the file `config.sample.json` to `config.json`. Then open that file in whatever text editor you prefer and paste in your webhook tokens inside of the empty strings.
 
 ## Bugs
 

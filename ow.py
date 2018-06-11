@@ -9,15 +9,22 @@ import sqlite3
 from discord_hooks import Webhook
 import slackweb
 from threading import Thread
+import urllib.request
+
+user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3107.4 Safari/537.36'
+headers = {}
+headers['User-Agent'] = user_agent
+headers['Content-Type'] = 'application/json'
 
 class Product():
-    def __init__(self, title, link, stock, keyword, image_url):
+    def __init__(self, title, link, stock, keyword, image_url, stock_options):
 
         self.title = title
         self.stock = stock
         self.link = link
         self.keyword = keyword
         self.image_url = image_url
+        self.stock_options = stock_options
 
 def read_from_txt(path):
 
@@ -60,8 +67,8 @@ def add_to_db(product):
     # Create database
     conn = sqlite3.connect('products.db')
     c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS products(title TEXT, link TEXT UNIQUE, stock TEXT, keywords TEXT)""")
 
+    c.execute("""CREATE TABLE IF NOT EXISTS products(title TEXT, link TEXT UNIQUE, stock TEXT, keywords TEXT)""")
 
     # Add product to database if it's unique
     try:
@@ -69,9 +76,18 @@ def add_to_db(product):
         log('s', "Found new product with keyword " + keyword + ". Link = " + link)        
         alert = True
     except:
-        # Product already exists
-        log('w', "Product at URL: " + link + " already exists in the database.")
-        pass
+        # Product already exists, let's check for stock updates
+        # TODO - check for updates to the stock field
+        try:
+            old_stock = c.execute("""SELECT stock FROM products WHERE link=product.link""")
+            if old_stock == product.stock:
+                log('w', "Product at URL: " + link + " already exists in the database.")
+                pass
+            else:
+                log('s', "Product at URL: " + link + " changed stock.")
+                alert = True
+        except:
+            log('w', "Product at URL: " + link + " already exists in the database.")
 
     # Close connection to the database
     conn.commit()
@@ -86,19 +102,39 @@ def notify(product, slack, discord):
     times = []
     today = datetime.now()
     times.append(today)
+    sizes = ""
+
+    for size in product.stock_options:
+        sizes+= (size + " ")
 
     if slack:
         sc = slackweb.Slack(url=slack)
         attachments = []
-        attachment = {"title": product.title, "color":"#EAF4EC", "text": product.link, "mrkdwn_in": ["text"], "thumb_url": product.image_url, "footer": "BBGR", "footer_icon": "https://platform.slack-edge.com/img/default_application_icon.png", "ts": time.time()}
+        attachment = {
+            "title": product.title,
+            "color":"#EAF4EC", 
+            "text": product.link,
+            "fields": [
+                {
+                    "title": "Sizes",
+                    "value": sizes,
+                    "short": False
+                }
+            ],
+            "mrkdwn_in": ["text"],
+            "thumb_url": product.image_url,
+            "footer": "BBGR",
+            "footer_icon": "https://platform.slack-edge.com/img/default_application_icon.png",
+            "ts": time.time()
+        }
         attachments.append(attachment)
         sc.notify(attachments=attachments)
 
     if discord:
         embed = Webhook(discord, color=0xEAF4EC)
-        embed.set_title(title=product.title)
+        embed.set_title(title=product.title, url=product.link)
         embed.set_thumbnail(url=product.image_url)
-        embed.add_field(name="Link", value=product.link)
+        embed.add_field(name="Sizes", value=sizes)
         embed.set_footer(text='BBGR', icon='https://cdn.discordapp.com/embed/avatars/0.png', ts=True)
         embed.post()
 
@@ -161,6 +197,7 @@ def monitor(link, keywords, slack, discord):
                 return
 
     for p in pages:
+
         page = soup(p.text, "html.parser")
         raw_links = page.findAll("article", class_="product")
         captions = page.findAll("div", class_='brand-name')
@@ -181,7 +218,22 @@ def monitor(link, keywords, slack, discord):
                 for keyword in keywords:
                     if keyword.upper() in captions[index].text.upper():
                         found = True
-                        product = Product(captions[index].text, (site + hrefs[index]), True, keyword, str(images[index]['src']))
+                        stock_data = []
+                        
+                        url = (site+hrefs[index]+'.json')
+
+                        req = urllib.request.Request(url, headers=headers)
+                        resp = urllib.request.urlopen(req).read()
+
+                        size_opts = json.loads(resp.decode('utf-8'))['available_sizes']
+                        # parse through the list
+                        if not size_opts:
+                            stock_data.append('Unavailable')
+                        else:
+                            for size in size_opts:
+                                stock_data.append(size['name'])
+
+                        product = Product(captions[index].text, (site + hrefs[index]), stock_data, keyword, str(images[index]['src']), stock_data)
                         alert = add_to_db(product)
 
                         if alert:
@@ -192,27 +244,21 @@ def __main__():
     # Ignore insecure messages (for now)
     requests.packages.urllib3.disable_warnings()
 
+    with open('config.json') as config:
+        j = json.load(config)
+
     ######### CHANGE THESE #########
-    #                              #
-    #                              #
     #  KEYWORDS: (seperated by -)  #
     keywords = [                   #
        "converse",
        "UNC",
        "Jordan",
        "Mercurial",
-       "Zoom",
+       "Zoom-Fly",
        "Nike"                   
-    ]                              #
-    #         SLACK WEBHOOK        #
-    slack = ""                     #
-    #                              #
-    #        DISCORD WEBHOOK       #
-    discord = ""                   #
-    #                              #
-    #                              #
-    #                              #
-    ####### END CHANGE THESE #######
+    ]                             
+    slack = j['slack']
+    discord = j['discord']
 
     # Load sites from file
     sites = read_from_txt("ow-pages.txt")
@@ -221,10 +267,14 @@ def __main__():
     while(True):
         threads = []
         for site in sites:
-            t = Thread(target=monitor, args=(site, keywords, slack, discord))
-            threads.append(t)
-            t.start()
-            time.sleep(2)
+            # skip over blank lines and shit
+            if not site.strip():
+                pass
+            else :
+                t = Thread(target=monitor, args=(site, keywords, slack, discord))
+                threads.append(t)
+                t.start()
+                time.sleep(2)
 
 
 

@@ -64,6 +64,8 @@ def add_to_db(product):
     keyword = product.keyword
     alert = False
 
+    # log('i', stock)
+
     # Create database
     conn = sqlite3.connect('products.db')
     c = conn.cursor()
@@ -77,17 +79,21 @@ def add_to_db(product):
         alert = True
     except:
         # Product already exists, let's check for stock updates
-        # TODO - check for updates to the stock field
         try:
-            old_stock = c.execute("""SELECT stock FROM products WHERE link=product.link""")
-            if old_stock == product.stock:
+            d = (link,)
+            c.execute('SELECT (stock) FROM products WHERE link=?', d)
+            old_stock = c.fetchone()
+            stock_str = str(old_stock)[2:-3]
+            if str(stock_str).strip() == str(product.stock).strip():
                 log('w', "Product at URL: " + link + " already exists in the database.")
                 pass
             else:
+                # TODO - update table for that product
                 log('s', "Product at URL: " + link + " changed stock.")
                 alert = True
-        except:
-            log('w', "Product at URL: " + link + " already exists in the database.")
+        except sqlite3.Error as e:
+            log('e', "database error: " + str(e))
+            log('w', "Product data for: " + link + " failed to load..")
 
     # Close connection to the database
     conn.commit()

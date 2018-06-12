@@ -90,6 +90,7 @@ def add_to_db(product):
             else:
                 # TODO - update table for that product
                 log('s', "Product at URL: " + link + " changed stock.")
+                c.execute("""UPDATE products SET stock = ? WHERE link= ?""", (stock_str, link))
                 alert = True
         except sqlite3.Error as e:
             log('e', "database error: " + str(e))

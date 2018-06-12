@@ -80,6 +80,7 @@ def add_to_db(product):
     except:
         # Product already exists, let's check for stock updates
         try:
+            # this is messy as fuck and I'm sorry.. :(
             d = (link,)
             c.execute('SELECT (stock) FROM products WHERE link=?', d)
             old_stock = c.fetchone()
@@ -88,13 +89,12 @@ def add_to_db(product):
                 log('w', "Product at URL: " + link + " already exists in the database.")
                 pass
             else:
-                # TODO - update table for that product
+                # update table for that product with new stock
                 log('s', "Product at URL: " + link + " changed stock.")
                 c.execute("""UPDATE products SET stock = ? WHERE link= ?""", (stock_str, link))
                 alert = True
         except sqlite3.Error as e:
             log('e', "database error: " + str(e))
-            log('w', "Product data for: " + link + " failed to load..")
 
     # Close connection to the database
     conn.commit()
@@ -148,12 +148,13 @@ def notify(product, slack, discord):
 def monitor(link, keywords, slack, discord):
 
     log('i', "Checking site: " + link + "...")
-    isSearch = False
+    isEarlyLink = False
     links = []
     pages = []
     # Parse the site from the link
     pos_https = link.find("https://")
     pos_http = link.find("http://")
+    pos_omia = link.find('omia')
 
     if(pos_https == 0):
         site = link[8:]
@@ -168,14 +169,68 @@ def monitor(link, keywords, slack, discord):
             site = site[:end]
         site = "http://" + site
 
+    if pos_omia > 0:
+        isEarlyLink = True
+
     # build search links
     if (link.endswith('=')):
-        isSearch = True
         for word in keywords:
             links.append(link + word)
+    else:
+        links.append(link)
 
-    if isSearch:
-        for l in links:
+    for l in links:
+        # go ahead and make the request
+        if isEarlyLink:
+            # parse the page to collect data
+            stock_data = []
+
+            try:
+                r = requests.get(l+"?admin=True", timeout=5, verify=False)
+            except:
+                log('e', 'Connection to URL: ' + l + " failed. Retrying...")
+                time.sleep(5)
+                try:
+                    r.requests.get(l+"?admin=True", timeout=8, verify=False)
+                except:      
+                    log('e', 'Connection to URL: ' + l + " failed.")
+                    return
+            if r.status_code == 404:
+                log('e', "Unable to parse that link..")
+
+            page = soup(r.text, "html.parser")
+
+            product = page.findAll('article', class_='product')
+            title = page.findAll('span', class_='prod-title')[0].text.strip()
+            image= page.findAll('img', class_="js-scroll-gallery-snap-target")
+
+            # paddings
+            if not image:
+                image = "N/A"
+
+            if not title:
+                title: "N/A"
+
+            # get the data
+            url = (l+".json"+"?admin=True")
+            req = urllib.request.Request(url, headers=headers)
+            resp = urllib.request.urlopen(req).read()
+
+            size_opts = json.loads(resp.decode('utf-8'))['available_sizes']
+            # parse through the list
+            
+            if not size_opts:
+                stock_data.append('Unavailable')
+            else:
+                for size in size_opts:
+                    stock_data.append(size['name'])
+            product = Product(title, l, stock_data, "N/A", str(image), stock_data)
+            alert = add_to_db(product)
+
+            if alert:
+                notify(product, slack, discord)
+        # let's do some magic to see if it's a valid link
+        else: 
             try:
                 r = requests.get(l, timeout=5, verify=False)
                 pages.append(r)
@@ -184,32 +239,17 @@ def monitor(link, keywords, slack, discord):
                 time.sleep(5)
                 try:
                     r.requests.get(l, timeout=8, verify=False)
+                    pages.append(r)
                 except:      
                     log('e', 'Connection to URL: ' + l + " failed.")
                     return
 
-    else:
-        # Get all the products on that page
-        try:
-            r = requests.get(link, timeout=5, verify=False)
-            pages.append(r)
-        except:
-            log('e', "Connection to URL: " + link + " failed. Retrying...")
-            time.sleep(5)
-            try:
-                r = requests.get(link, timeout=8, verify=False)
-                pages.append(r)
-            except:
-                log('e', "Connection to URL: " + link + " failed.")
-                return
-
     for p in pages:
-
         page = soup(p.text, "html.parser")
+        hrefs = []
         raw_links = page.findAll("article", class_="product")
         captions = page.findAll("div", class_='brand-name')
         images = page.findAll('img', class_='top')
-        hrefs = []
 
         for raw_link in raw_links:
             link = raw_link.find('a', attrs={"itemprop": "url"})
@@ -246,6 +286,7 @@ def monitor(link, keywords, slack, discord):
                         if alert:
                             notify(product, slack, discord)
             index = index + 1
+
 
 def __main__():
     # Ignore insecure messages (for now)

@@ -1,5 +1,7 @@
 # Off-White-Monitor
 
+**CURRENTLY BEING REWORKED, STAR THE PROJECT TO MAKE SURE YOU DON'T MISS THE NEWEST VERSION**
+
 ## Pre-Requisites
 
 In order for the monitor to work, you must have [Python 3+](https://www.python.org/downloads/) installed. The required libraries aren't supported in Python 2.7.

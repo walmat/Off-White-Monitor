@@ -1,0 +1,29 @@
+{
+  "name": "off-white-monitor",
+  "description": "off---white.com monitor for new products/restocks",
+  "author": "Matthew Wall",
+  "version": "1.0.0",
+  "license": "MIT",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/walmat/Off-White-Monitor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/walmat/Off-White-Monitor/issues"
+  },
+  "homepage": "https://github.com/walmat/Off-White-Monitor",
+  "dependencies": {
+    "chalk": "^2.4.1",
+    "cheerio": "^1.0.0-rc.2",
+    "cloudscraper": "^1.5.0",
+    "moment": "^2.22.2",
+    "prompt": "^1.0.0",
+    "request": "^2.87.0",
+    "rethinkdb": "^2.3.3",
+    "uuid": "^3.3.2"
+  }
+}

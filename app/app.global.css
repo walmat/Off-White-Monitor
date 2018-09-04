@@ -1,0 +1,53 @@
+/*
+ * @NOTE: Prepend a `~` to css file paths that are in your node_modules
+ *        See https://github.com/webpack-contrib/sass-loader#imports
+ */
+@import "~@fortawesome/fontawesome-free/css/all.css";
+@import '~bootstrap/dist/css/bootstrap.css';
+
+.titlebar {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 25px;
+  -webkit-user-select: none;
+  -webkit-app-region: drag;
+}
+
+body {
+  position: relative;
+  color: #161318;
+  height: 100vh;
+  background-color: #ebf4ec;
+  background-image: linear-gradient(60deg, rgba(235, 244, 236, 1) 10%, rgba(212, 228, 188, 1));
+  font-family: Helvetica, Arial, sans-serif;
+  overflow-y: hidden;
+}
+
+h2 {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: bold;
+  letter-spacing: -0.025em;
+  color: #161318;
+}
+
+p {
+  font-size: 24px;
+}
+
+li {
+  list-style: none;
+}
+
+a {
+  color: #161318;
+  opacity: 0.75;
+  text-decoration: none;
+}
+
+a:hover {
+  opacity: 1;
+  text-decoration: none;
+  cursor: pointer;
+}

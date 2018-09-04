@@ -1,0 +1,18 @@
+{
+  "name": "off-white-monitor",
+  "productName": "off-white-monitor",
+  "version": "1.0.0",
+  "description": "Monitors off---white.com for product releases/restocks. Supports all regions.",
+  "main": "./main.prod.js",
+  "author": {
+    "name": "Matthew Wall",
+    "email": "matthew.wallt@gmail.com",
+    "url": "https://github.com/walmat"
+  },
+  "scripts": {
+    "electron-rebuild": "node -r babel-register ../internals/scripts/ElectronRebuild.js",
+    "postinstall": "yarn electron-rebuild"
+  },
+  "license": "MIT",
+  "dependencies": {}
+}
